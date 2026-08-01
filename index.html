@@ -65,6 +65,8 @@
   .delta{font-size:11px;margin-left:4px;}
   .broker-cell{font-weight:600;}
   .note{color:var(--sub);font-size:12.5px;max-width:280px;white-space:normal;text-align:left;}
+  th.col-tp,td.col-tp{width:96px;min-width:96px;padding-left:4px;padding-right:4px;font-size:12.5px;}
+  th.col-note,td.col-note{width:440px;min-width:440px;max-width:440px;}
   .filename{color:var(--sub);font-size:11.5px;white-space:normal;text-align:left;max-width:230px;word-break:break-all;font-family:Consolas,"Courier New",monospace;}
   .empty{color:var(--sub);padding:40px;text-align:center;}
   footer{text-align:center;color:var(--sub);font-size:12px;padding:20px;}
@@ -102,7 +104,7 @@
   .summary-detail summary::-webkit-details-marker{display:none;}
   .summary-detail summary::marker{content:"";}
   .summary-detail summary:hover{text-decoration:underline;}
-  .summary-block{margin-top:8px;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;font-size:12.5px;line-height:1.65;white-space:normal;width:380px;}
+  .summary-block{margin-top:8px;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;font-size:12.5px;line-height:1.65;white-space:normal;width:420px;}
   .summary-stage{margin-bottom:12px;}
   .summary-stage:last-child{margin-bottom:0;}
   .summary-stage b{display:block;color:var(--text);font-size:12px;margin-bottom:5px;}
@@ -3868,14 +3870,18 @@ function render(code){
 
   // 明細表
   if(period==="annual"){
+    // 明細表只列「去年 ~ 後年」共四個年度（以最新一份報告的年份為基準），
+    // 更早的歷史年度已無決策意義，且會讓表格過寬；上方圖表仍保留完整年度供比較。
+    const anchorYear = new Date(latest.date).getFullYear();
+    const tableYears = years.filter(y=> y>=anchorYear-1 && y<=anchorYear+2);
     html += `<div class="card">
       <div class="section-title">券商報告明細 <span class="hint">${metric==="revenue"?"營收數值請見上方圖表，此表僅列評等／目標價／摘要":`年度 ${mm.label}`}</span></div>
       <div style="overflow-x:auto;">
       <table>
         <thead><tr>
-          <th>發布日期</th><th>券商</th><th>評等</th><th>目標價</th>
-          ${metric==="revenue" ? "" : years.map(y=>`<th>${y}${y<=new Date(latest.date).getFullYear()-1?'A':'E'} ${mm.short}</th>`).join("")}
-          <th>重點摘要</th>
+          <th>發布日期</th><th>券商</th><th>評等</th><th class="col-tp">目標價</th>
+          ${metric==="revenue" ? "" : tableYears.map(y=>`<th>${y}${y<=anchorYear-1?'A':'E'} ${mm.short}</th>`).join("")}
+          <th class="col-note">重點摘要</th>
           <th>報告檔名</th>
         </tr></thead>
         <tbody>
@@ -3885,14 +3891,14 @@ function render(code){
             <td>${r.date}</td>
             <td class="broker-cell">${r.broker}</td>
             <td><span class="rating ${ratingClass(r.rating)}">${r.ratingCn}</span></td>
-            <td>NT$${fmt(r.tp)}${tpDelta}</td>
-            ${metric==="revenue" ? "" : years.map(y=>{
+            <td class="col-tp">NT$${fmt(r.tp)}${tpDelta}</td>
+            ${metric==="revenue" ? "" : tableYears.map(y=>{
               const v = annualVal(r,y);
               if(v===undefined) return `<td>—</td>`;
               const prevV = annualPrevVal(r,y);
               return `<td>${fmt(metric==="gm"?v.toFixed(1):v)}${metric==="gm"?"%":""}${prevV!==undefined?deltaSpan(v,prevV):''}</td>`;
             }).join("")}
-            <td class="note">${r.note}${summaryDetailHtml(r)}</td>
+            <td class="note col-note">${r.note}${summaryDetailHtml(r)}</td>
             <td class="filename">${r.sourceFile||"—"}</td>
           </tr>`;
         }).join("")}
