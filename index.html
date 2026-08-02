@@ -156,6 +156,9 @@
   #gate p{color:var(--sub);font-size:13.5px;line-height:1.7;margin:0 0 22px;}
   #gate .g-err{color:var(--red);font-size:13px;margin-top:16px;line-height:1.6;display:none;}
   #gate .g-btn-wrap{display:flex;justify-content:center;}
+  #buildStamp{position:fixed;right:14px;bottom:46px;z-index:59;font-size:11px;
+    color:var(--sub);background:rgba(22,29,46,.85);border:1px solid var(--border);
+    border-radius:6px;padding:4px 9px;pointer-events:none;}
   #logoutBar{position:fixed;right:14px;bottom:14px;z-index:60;background:var(--panel);
     border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11.5px;
     color:var(--sub);display:none;gap:10px;align-items:center;}
@@ -169,6 +172,7 @@
     <div class="g-err" id="gErr"></div>
   </div>
 </div>
+<div id="buildStamp">資料更新：2026-08-02 21:48</div>
 <div id="logoutBar"><span id="whoami"></span><a onclick="signOut()">登出</a></div>
 <script>
 // ===AUTH_CONFIG_START===
