@@ -20242,6 +20242,8 @@ function render(code){
   if(selectedBroker!=="all" && !brokerOrder.includes(selectedBroker)) selectedBroker = "all";
 
   const reports = selectedBroker==="all" ? allReports : allReports.filter(r=>r.broker===selectedBroker);
+  // 表格與圖表一律「新→舊」呈現；reports 本身維持「舊→新」供 latest／前次估值比較使用
+  const shown = [...reports].reverse();
   const latest = reports[reports.length-1];
   const latestAll = allReports[allReports.length-1];
   const avgTpAll = allReports.reduce((s,r)=>s+r.tp,0)/allReports.length;
@@ -20314,7 +20316,7 @@ function render(code){
   // 目標價變化 (若同一股票有多份報告)
   if(reports.length>1){
     html += `<div class="card">
-      <div class="section-title">目標價動態追蹤 <span class="hint">依報告發布日期排序</span></div>
+      <div class="section-title">目標價動態追蹤 <span class="hint">由新到舊</span></div>
       <canvas id="tpChart"></canvas>
     </div>`;
   }
@@ -20336,7 +20338,7 @@ function render(code){
           <th>報告檔名</th>
         </tr></thead>
         <tbody>
-        ${reports.map(r=>{
+        ${shown.map(r=>{
           const tpDelta = r.tpPrev && r.tpPrev!==r.tp ? deltaSpan(r.tp, r.tpPrev) : (r.tpPrev===null ? ' <span class="badge-new">首次</span>' : '');
           return `<tr>
             <td>${r.date}</td>
@@ -20368,7 +20370,7 @@ function render(code){
           <th>報告檔名</th>
         </tr></thead>
         <tbody>
-        ${reports.map(r=>{
+        ${shown.map(r=>{
           const byKey = {};
           (r.quarterly||[]).forEach(q=> byKey[quarterKey(q)] = q);
           const fileCell = `<td class="filename">${r.sourceFile||"—"}</td>`;
@@ -20405,12 +20407,12 @@ function render(code){
     if(period==="annual"){
       const datasets = years.map((y,i)=>({
         label: `${y}年 ${mm.short}`,
-        data: reports.map(r=> { const v = annualVal(r,y); return v===undefined?null:v; }),
+        data: shown.map(r=> { const v = annualVal(r,y); return v===undefined?null:v; }),
         backgroundColor: palette[i % palette.length]
       }));
       chart1 = new Chart(document.getElementById("epsChart"), {
         type:"bar",
-        data:{ labels: reports.map(r=> reports.length>1 ? `${r.broker} (${r.date.slice(2)})` : r.broker), datasets },
+        data:{ labels: shown.map(r=> shown.length>1 ? `${r.broker} (${r.date.slice(2)})` : r.broker), datasets },
         options:{
           responsive:true,
           plugins:{ legend:{labels:{color:"#e8ecf6"}}, tooltip:{mode:"index", intersect:false} },
@@ -20421,7 +20423,7 @@ function render(code){
         }
       });
     } else {
-      const datasets = reports.map((r,i)=>{
+      const datasets = shown.map((r,i)=>{
         const byKey = {};
         (r.quarterly||[]).forEach(q=> byKey[quarterKey(q)] = q);
         return {
@@ -20431,15 +20433,11 @@ function render(code){
             if(!rq) return null;
             return quarterVal(rq);
           }),
-          borderColor: palette[i % palette.length],
-          backgroundColor: palette[i % palette.length],
-          spanGaps:false,
-          tension:0.2,
-          pointRadius:3
+          backgroundColor: palette[i % palette.length]
         };
       });
       chart1 = new Chart(document.getElementById("epsChart"), {
-        type:"line",
+        type:"bar",
         data:{ labels: qUnion.map(q=>quarterLabel(q)), datasets },
         options:{
           responsive:true,
@@ -20463,9 +20461,9 @@ function render(code){
       chart2 = new Chart(document.getElementById("tpChart"), {
         type:"bar",
         data:{
-          labels: reports.map(r=> `${r.date}\n${r.broker}`),
+          labels: shown.map(r=> `${r.date}\n${r.broker}`),
           datasets:[
-            { label:"目標價", data: reports.map(r=>r.tp), backgroundColor: reports.map((r,i)=>palette[i % palette.length]) }
+            { label:"目標價", data: shown.map(r=>r.tp), backgroundColor: shown.map((r,i)=>palette[i % palette.length]) }
           ]
         },
         options:{
