@@ -172,7 +172,7 @@
     <div class="g-err" id="gErr"></div>
   </div>
 </div>
-<div id="buildStamp">資料更新：2026-08-02 21:48</div>
+<div id="buildStamp">資料更新：2026-08-02 22:17</div>
 <div id="logoutBar"><span id="whoami"></span><a onclick="signOut()">登出</a></div>
 <script>
 // ===AUTH_CONFIG_START===
@@ -44210,7 +44210,7 @@ function deltaSpan(a,b){
 // 依 metric 取得單一年度數值（revenue 自動換算為十億元）
 function annualVal(rep, y){
   const raw = rep.annual[metric] ? rep.annual[metric][y] : undefined;
-  if(raw===undefined) return undefined;
+  if(raw===undefined || raw===null || isNaN(raw)) return undefined;
   return metric==="revenue" ? raw/1000 : raw;
 }
 function annualPrevVal(rep, y){
@@ -44221,7 +44221,7 @@ function quarterKey(q){ return q.year*10 + q.q; }
 function quarterLabel(q){ return `${q.q}Q${String(q.year).slice(2)}${q.actual?'':'F'}`; }
 function quarterVal(qObj){
   const raw = qObj[metric];
-  if(raw===undefined) return null;
+  if(raw===undefined || raw===null || isNaN(raw)) return null;
   return metric==="revenue" ? raw/1000 : raw;
 }
 function parsePrevRatingLabel(ratingCn){
@@ -44365,13 +44365,21 @@ function render(code){
   [...allReports].sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{ if(!brokerOrder.includes(r.broker)) brokerOrder.push(r.broker); });
   if(selectedBroker!=="all" && !brokerOrder.includes(selectedBroker)) selectedBroker = "all";
 
-  const reports = selectedBroker==="all" ? allReports : allReports.filter(r=>r.broker===selectedBroker);
+  // 「全部券商」總覽：同一家券商只保留最新一份，避免同一家在圖表上出現多次。
+  // 切到特定券商時則顯示該家全部報告，「最新 vs 上一次」的比較才有資料可用。
+  const latestPerBroker = (()=>{
+    const m = new Map();                    // allReports 是舊→新，後寫入的即為最新
+    allReports.forEach(r=> m.set(r.broker, r));
+    return [...m.values()].sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+  })();
+  const reports = selectedBroker==="all" ? latestPerBroker : allReports.filter(r=>r.broker===selectedBroker);
   // 表格與圖表一律「新→舊」呈現；reports 本身維持「舊→新」供 latest／前次估值比較使用
   const shown = [...reports].reverse();
   const latest = reports[reports.length-1];
   const latestAll = allReports[allReports.length-1];
-  const avgTpAll = allReports.reduce((s,r)=>s+r.tp,0)/allReports.length;
-  const upsideAll = pct(avgTpAll, latestAll.price);
+  const tpBase = latestPerBroker.filter(r=> typeof r.tp === "number");
+  const avgTpAll = tpBase.length ? tpBase.reduce((s,r)=>s+r.tp,0)/tpBase.length : null;
+  const upsideAll = avgTpAll===null ? null : pct(avgTpAll, latestAll.price);
   const availMetrics = availableMetrics(allReports);
   if(!availMetrics.includes(metric)) metric = "eps";
   const mm = METRIC_META[metric];
@@ -44399,9 +44407,9 @@ function render(code){
       </div>
       <div class="stat-row">
         <div class="stat"><div class="label">最新股價</div><div class="value">NT$${fmt(latestAll.price)}</div></div>
-        <div class="stat"><div class="label">平均目標價 (${allReports.length}家)</div><div class="value">NT$${fmt(avgTpAll.toFixed(0))}</div></div>
+        <div class="stat"><div class="label">平均目標價 (${tpBase.length}家)</div><div class="value">${avgTpAll===null?"—":"NT$"+fmt(avgTpAll.toFixed(0))}</div></div>
         <div class="stat"><div class="label">隱含上行空間</div><div class="value ${upsideAll>=0?'up':'down'}">${upsideAll===null?'—':(upsideAll>=0?'+':'')+upsideAll.toFixed(1)+'%'}</div></div>
-        <div class="stat"><div class="label">追蹤報告數</div><div class="value">${allReports.length}</div></div>
+        <div class="stat"><div class="label">追蹤券商 / 報告</div><div class="value">${latestPerBroker.length} / ${allReports.length}</div></div>
       </div>
     </div>
   </div>`;
@@ -44433,7 +44441,7 @@ function render(code){
 
   // 主圖表
   html += `<div class="card">
-    <div class="section-title">各券商 ${mm.label} ${period==='annual'?'年度':'季度'}預估比較 <span class="hint">單位：${mm.unit}</span></div>
+    <div class="section-title">各券商 ${mm.label} ${period==='annual'?'年度':'季度'}預估比較 <span class="hint">單位：${mm.unit}${selectedBroker==="all"?"｜每家券商取最新一份":""}</span></div>
     <canvas id="epsChart"></canvas>
   </div>`;
 
@@ -44508,6 +44516,7 @@ function render(code){
               const rq = byKey[quarterKey(q)];
               if(!rq || rq[metric]===undefined) return `<td>—</td>`;
               const v = quarterVal(rq);
+              if(v===null) return `<td>—</td>`;
               return `<td class="${rq.actual?'':'estq'}">${fmt(metric==="gm"?v.toFixed(1):v)}${metric==="gm"?"%":""}</td>`;
             }).join("")}
             ${fileCell}
