@@ -165,7 +165,7 @@
 <script>
 // ===AUTH_CONFIG_START===
 const GOOGLE_CLIENT_ID = "895601722476-kikjqnb5afmhbgktnb9q0hprlnhdutrc.apps.googleusercontent.com";
-const ALLOWLIST = ["tangershen@gmail.com", "charlie82117@gmail.com"];
+const ALLOWLIST = ["tangershen@gmail.com", "vicshen.jva@gmail.com", "charlie82117@gmail.com"];
 // ===AUTH_CONFIG_END===
 
 const AUTH_KEY = "brt_auth_v1";
@@ -227,7 +227,7 @@ window.onload = function(){
 <header>
   <div class="search-box">
     <span style="color:var(--sub);font-size:13px;">🔍 股票代號</span>
-    <input id="tickerInput" list="tickerList" placeholder="輸入代號，如 2308" autocomplete="off">
+    <input id="tickerInput" list="tickerList" placeholder="輸入代號，如 2330" autocomplete="off">
     <datalist id="tickerList"></datalist>
     <button onclick="go()">查詢</button>
   </div>
@@ -244,7 +244,7 @@ window.onload = function(){
 <script>
 // ---------------- 資料集：由資料夾內券商報告 PDF 擷取整理 ----------------
 // annual: { eps, epsPrev, revenue(NT$mn), gm(%), opm(%,選填), npm(%,選填) } — 各年度
-// quarterly: [{year, q, actual, eps, revenue(NT$mn), gm(%), opm(%,選填), npm// ===DATA_START===
+// quarterly: [{year, q, actual, eps, revenue(NT$m// ===DATA_START===
 const DATA = {
   "1210": {
     "name": "大成",
@@ -20121,14 +20121,15 @@ const DATA = {
     ]
   }
 };
-// ===DATA_END===  ]
+// ===DATA_END===貢獻今年3億美元營收，未來三年將逾10億美元"}
+  ]
 }
 };
 // ===DATA_END===
 
 // ---------------- 狀態 ----------------
 let chart1 = null, chart2 = null;
-let currentCode = "2308";
+let currentCode = "2330";
 let period = "annual";   // 'annual' | 'quarterly'
 let metric = "eps";      // 'eps' | 'revenue' | 'gm'
 let selectedBroker = "all"; // 'all' 或特定券商名稱
@@ -20621,7 +20622,7 @@ function buildLatestPanel(){
 buildQuicklist();
 buildLatestPanel();
 document.getElementById("tickerInput").addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
-render("2308");
+render("2330");
 
 </script>
 </body>
