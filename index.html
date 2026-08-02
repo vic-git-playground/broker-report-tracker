@@ -83,8 +83,16 @@
   .delta{font-size:11px;margin-left:4px;}
   .broker-cell{font-weight:600;}
   .note{color:var(--sub);font-size:12.5px;max-width:280px;white-space:normal;text-align:left;}
-  th.col-tp,td.col-tp{width:96px;min-width:96px;padding-left:4px;padding-right:4px;font-size:12.5px;}
+  th.col-tp,td.col-tp{width:104px;min-width:104px;padding-left:6px;padding-right:4px;
+    font-size:12.5px;text-align:left;}
+  th.col-rating,td.col-rating{width:104px;min-width:104px;max-width:104px;
+    white-space:normal;text-align:left;padding-left:6px;padding-right:4px;}
+  td.col-rating .rating{display:inline-block;white-space:normal;line-height:1.45;font-size:11.5px;}
   th.col-note,td.col-note{width:440px;min-width:440px;max-width:440px;}
+  .tbl-wrap{overflow-x:auto;overflow-y:visible;scrollbar-width:thin;}
+  .tbl-wrap::-webkit-scrollbar{height:10px;}
+  .tbl-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px;}
+  .tbl-wrap::-webkit-scrollbar-thumb:hover{background:var(--accent);}
   .filename{color:var(--sub);font-size:11.5px;white-space:normal;text-align:left;max-width:230px;word-break:break-all;font-family:Consolas,"Courier New",monospace;}
   .empty{color:var(--sub);padding:40px;text-align:center;}
   footer{text-align:center;color:var(--sub);font-size:12px;padding:20px;}
@@ -20214,7 +20222,7 @@ function summaryDetailHtml(rep){
     </div>`;
   }).join("") : "";
 
-  return `<details class="summary-detail">
+  return `<details class="summary-detail" ontoggle="if(this.open)this.scrollIntoView({block:'nearest',inline:'end',behavior:'smooth'});">
     <summary>📄 查看核心論點</summary>
     <div class="summary-block">
       ${s.core_intent ? `<div class="summary-stage"><b>核心表達意圖</b><div class="summary-intent">${s.core_intent}</div></div>` : ""}
@@ -20414,10 +20422,10 @@ function render(code){
     const tableYears = years.filter(y=> y>=anchorYear-1 && y<=anchorYear+2);
     html += `<div class="card">
       <div class="section-title">券商報告明細 <span class="hint">${metric==="revenue"?"營收數值請見上方圖表，此表僅列評等／目標價／摘要":`年度 ${mm.label}`}</span></div>
-      <div style="overflow-x:auto;">
+      <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>發布日期</th><th>券商</th><th>評等</th><th class="col-tp">目標價</th>
+          <th>發布日期</th><th>券商</th><th class="col-rating">評等</th><th class="col-tp">目標價</th>
           ${metric==="revenue" ? "" : tableYears.map(y=>`<th>${y}${y<=anchorYear-1?'A':'E'} ${mm.short}</th>`).join("")}
           <th class="col-note">重點摘要</th>
           <th>報告檔名</th>
@@ -20428,7 +20436,7 @@ function render(code){
           return `<tr>
             <td>${r.date}</td>
             <td class="broker-cell">${r.broker}</td>
-            <td><span class="rating ${ratingClass(r.rating)}">${r.ratingCn}</span></td>
+            <td class="col-rating"><span class="rating ${ratingClass(r.rating)}">${r.ratingCn}</span></td>
             <td class="col-tp">NT$${fmt(r.tp)}${tpDelta}</td>
             ${metric==="revenue" ? "" : tableYears.map(y=>{
               const v = annualVal(r,y);
@@ -20447,7 +20455,7 @@ function render(code){
   } else {
     html += `<div class="card">
       <div class="section-title">券商報告明細 <span class="hint">${metric==="revenue"?"營收數值請見上方圖表，此表僅列報告檔名":`單季 ${mm.label}，灰色為報告發布時尚未公布之預估季`}</span></div>
-      <div style="overflow-x:auto;">
+      <div class="tbl-wrap">
       <table>
         <thead><tr>
           <th>券商</th><th>發布日期</th>
