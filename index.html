@@ -39,7 +39,25 @@
   .quicklist{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
   .quicklist span{background:var(--panel2);border:1px solid var(--border);color:var(--sub);padding:5px 10px;border-radius:16px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
   .quicklist span:hover{border-color:var(--accent);color:var(--text);}
-  main{padding:22px;max-width:1180px;margin:0 auto;}
+  .layout{display:flex;gap:18px;padding:22px;max-width:1560px;margin:0 auto;align-items:flex-start;}
+  main{flex:1;min-width:0;}
+  .latest-panel{width:320px;flex:0 0 320px;position:sticky;top:16px;max-height:calc(100vh - 32px);
+    overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 14px;}
+  .latest-title{font-size:14px;font-weight:600;margin:0 0 4px;}
+  .latest-sub{font-size:11.5px;color:var(--sub);margin-bottom:12px;}
+  .latest-item{border-top:1px solid var(--border);padding:9px 2px;cursor:pointer;}
+  .latest-item:first-of-type{border-top:none;}
+  .latest-item:hover{background:rgba(255,255,255,.03);}
+  .li-top{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--sub);}
+  .li-name{font-size:13px;font-weight:600;margin-top:2px;}
+  .li-broker{font-size:11.5px;color:var(--sub);margin-top:1px;}
+  .li-tp{font-size:11.5px;margin-top:3px;}
+  .li-body{margin-top:7px;padding:9px 10px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:8px;font-size:12px;line-height:1.6;}
+  .li-body ul{margin:4px 0 0;padding-left:16px;}
+  .li-body li{margin-bottom:3px;}
+  .li-none{color:var(--sub);font-size:11.5px;}
+  @media (max-width:1200px){ .layout{flex-direction:column;} .latest-panel{width:auto;flex:none;position:static;max-height:none;} }
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px;}
   .company-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;}
   .company-head h1{margin:0;font-size:24px;}
@@ -131,7 +149,10 @@
   <div class="title">券商報告動態追蹤表格系統 <b id="hdrCompany">Demo</b></div>
 </header>
 
-<main id="main"></main>
+<div class="layout">
+  <main id="main"></main>
+  <aside id="latestPanel" class="latest-panel"></aside>
+</div>
 
 <footer>資料來源：資料夾內券商報告 PDF（Daiwa-Cathay、Goldman Sachs、J.P. Morgan、BofA Securities、UBS、凱基投顧、富邦投顧、元大投顧、統一投顧），僅供 Demo 展示，非投資建議。</footer>
 
@@ -14127,7 +14148,7 @@ const DATA = {
     ]
   },
   "7769": {
-    "name": "宏精科技",
+    "name": "鴻勁精密",
     "nameEn": "Hon Precision",
     "sector": "半導體設備",
     "reports": [
@@ -19628,8 +19649,57 @@ function render(code){
   }
 }
 
+// ---------------- 右側「最新報告」面板 ----------------
+let openReport = null;   // 目前展開中的報告 key
+
+function allReportsSorted(){
+  const out = [];
+  Object.keys(DATA).forEach(code=>{
+    (DATA[code].reports||[]).forEach((r,i)=>{
+      out.push({code, name:DATA[code].name, idx:i, r});
+    });
+  });
+  // 依報告日期新到舊
+  out.sort((a,b)=> (b.r.date||"").localeCompare(a.r.date||""));
+  return out;
+}
+
+function toggleReport(key){
+  openReport = (openReport===key) ? null : key;
+  buildLatestPanel();
+}
+
+function buildLatestPanel(){
+  const el = document.getElementById("latestPanel");
+  if(!el) return;
+  const list = allReportsSorted().slice(0, 60);
+  const rows = list.map(({code,name,idx,r})=>{
+    const key = code+"#"+idx;
+    const open = openReport===key;
+    const tpDelta = (r.tpPrev && r.tpPrev!==r.tp) ? deltaSpan(r.tp, r.tpPrev)
+                  : (r.tpPrev===null ? ' <span class="badge-new">首次</span>' : '');
+    const bullets = (r.summary && r.summary.thesis_bullets) || [];
+    const body = open ? `<div class="li-body">
+        ${bullets.length ? `<ul>${bullets.map(b=>`<li>${b}</li>`).join("")}</ul>`
+                         : (r.note ? r.note : `<span class="li-none">這份報告沒有摘要資料</span>`)}
+        <div style="margin-top:8px"><a href="#" onclick="event.preventDefault();event.stopPropagation();document.getElementById('tickerInput').value='${code}';render('${code}');window.scrollTo({top:0,behavior:'smooth'});"
+          style="color:var(--accent);font-size:11.5px;">→ 查看 ${code} 完整追蹤</a></div>
+      </div>` : "";
+    return `<div class="latest-item" onclick="toggleReport('${key}')">
+      <div class="li-top"><span>${r.date||""}</span><span class="rating ${ratingClass(r.rating)}">${r.ratingCn||r.rating||""}</span></div>
+      <div class="li-name">${code} ${name}</div>
+      <div class="li-broker">${r.broker||""}</div>
+      <div class="li-tp">目標價 NT$${fmt(r.tp)}${tpDelta}</div>
+      ${body}
+    </div>`;
+  }).join("");
+  el.innerHTML = `<div class="latest-title">📰 最新報告</div>
+    <div class="latest-sub">依發布日期排序，點一下看重點</div>${rows}`;
+}
+
 // 初始化
 buildQuicklist();
+buildLatestPanel();
 document.getElementById("tickerInput").addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
 render("2308");
 
