@@ -244,7 +244,8 @@ window.onload = function(){
 <script>
 // ---------------- 資料集：由資料夾內券商報告 PDF 擷取整理 ----------------
 // annual: { eps, epsPrev, revenue(NT$mn), gm(%), opm(%,選填), npm(%,選填) } — 各年度
-// quarterly: [{year, q, actual, eps, revenue(NT$m// ===DATA_START===
+// quarterly: [{year, q, actual, eps, revenue(NT$mn), gm(%), opm(%,選填), npm(%,選填)}] — 缺項代表該券商未揭露該季預估
+// ===DATA_START===
 const DATA = {
   "1210": {
     "name": "大成",
@@ -20120,10 +20121,6 @@ const DATA = {
       }
     ]
   }
-};
-// ===DATA_END===貢獻今年3億美元營收，未來三年將逾10億美元"}
-  ]
-}
 };
 // ===DATA_END===
 
