@@ -174,7 +174,7 @@
     <div class="g-err" id="gErr"></div>
   </div>
 </div>
-<div id="buildStamp">資料更新：2026-08-03 15:27</div>
+<div id="buildStamp">資料更新：2026-08-03 15:37</div>
 <div id="logoutBar"><span id="whoami"></span><a onclick="signOut()">登出</a></div>
 <script>
 // ===AUTH_CONFIG_START===
@@ -47217,10 +47217,34 @@ function render(code){
 
   // 「全部券商」總覽：同一家券商只保留最新一份，避免同一家在圖表上出現多次。
   // 切到特定券商時則顯示該家全部報告，「最新 vs 上一次」的比較才有資料可用。
+  // 每家券商取最新一份，但「最新那份沒有的年度數字，用同券商較舊的報告補上」。
+  // 券商常發單季財報速評（只有當季數字、沒有年度預估），若直接取最新會讓整排長條消失；
+  // 補值後看到的是該券商目前最完整的估值全貌。補來的值標記在 _filled 供表格提示。
   const latestPerBroker = (()=>{
-    const m = new Map();                    // allReports 是舊→新，後寫入的即為最新
-    allReports.forEach(r=> m.set(r.broker, r));
-    return [...m.values()].sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+    const byBroker = new Map();
+    allReports.forEach(r=>{ (byBroker.get(r.broker) || byBroker.set(r.broker, []).get(r.broker)).push(r); });
+    const out = [];
+    byBroker.forEach(list=>{
+      const sorted = [...list].sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+      const latest = sorted[sorted.length-1];
+      const merged = {...latest, annual: {...(latest.annual||{})}, _filled: {}};
+      for(let i=sorted.length-2; i>=0; i--){
+        const older = sorted[i].annual || {};
+        Object.keys(older).forEach(mk=>{
+          const src = older[mk];
+          if(!src || typeof src !== "object") return;
+          const dst = merged.annual[mk] = {...(merged.annual[mk]||{})};
+          Object.keys(src).forEach(y=>{
+            if(dst[y]===undefined && src[y]!==undefined && src[y]!==null){
+              dst[y] = src[y];
+              (merged._filled[mk] = merged._filled[mk] || {})[y] = sorted[i].date;
+            }
+          });
+        });
+      }
+      out.push(merged);
+    });
+    return out.sort((a,b)=> (a.date||"").localeCompare(b.date||""));
   })();
   // 明細表：列出全部報告（同一券商多份也都保留，可看出估值調整軌跡）
   const reports = selectedBroker==="all" ? allReports : allReports.filter(r=>r.broker===selectedBroker);
