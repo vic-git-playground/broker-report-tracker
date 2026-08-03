@@ -174,7 +174,7 @@
     <div class="g-err" id="gErr"></div>
   </div>
 </div>
-<div id="buildStamp">資料更新：2026-08-03 11:47</div>
+<div id="buildStamp">資料更新：2026-08-03 12:02</div>
 <div id="logoutBar"><span id="whoami"></span><a onclick="signOut()">登出</a></div>
 <script>
 // ===AUTH_CONFIG_START===
@@ -46224,9 +46224,36 @@ function annualVal(rep, y){
   if(raw===undefined || raw===null || isNaN(raw)) return undefined;
   return metric==="revenue" ? raw/1000 : raw;
 }
+// 前次估值有兩個來源，依可靠度排序：
+//   1. 同一券商對同一檔股票的「前一份報告」——真正的前後對照，涵蓋所有年度
+//   2. 報告自身揭露的 epsPrev（例如「原估 X 元」）——只有部分報告有，年度也不全
+// 兩者都沒有就回傳 undefined，圖表與表格會直接不顯示變動幅度。
+let PREV_INDEX = null;   // 每次 render 重建：source_path/broker+date -> 前一份報告
+
+function buildPrevIndex(allReports){
+  const byBroker = {};
+  [...allReports].sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .forEach(r=>{ (byBroker[r.broker] = byBroker[r.broker] || []).push(r); });
+  const idx = new Map();
+  Object.values(byBroker).forEach(list=>{
+    for(let i=1;i<list.length;i++) idx.set(list[i], list[i-1]);
+  });
+  return idx;
+}
+
 function annualPrevVal(rep, y){
-  if(metric!=="eps") return undefined; // 只有 EPS 有完整前次估值紀錄
-  return rep.annual.epsPrev ? rep.annual.epsPrev[y] : undefined;
+  // 來源 1：同券商前一份報告的同年度估值
+  if(PREV_INDEX){
+    const p = PREV_INDEX.get(rep);
+    if(p && p.annual && p.annual[metric]){
+      const v = p.annual[metric][y];
+      if(v!==undefined && v!==null && !isNaN(v)) return v;
+    }
+  }
+  // 來源 2：報告自身揭露的前次預估（目前只有 EPS 有）
+  if(metric!=="eps") return undefined;
+  const v2 = rep.annual.epsPrev ? rep.annual.epsPrev[y] : undefined;
+  return (v2===null || (v2!==undefined && isNaN(v2))) ? undefined : v2;
 }
 function quarterKey(q){ return q.year*10 + q.q; }
 function quarterLabel(q){ return `${q.q}Q${String(q.year).slice(2)}${q.actual?'':'F'}`; }
@@ -46383,6 +46410,7 @@ function render(code){
   document.getElementById("hdrCompany").textContent = `${c.name} (${code})`;
 
   const allReports = [...c.reports].sort((a,b)=> a.date.localeCompare(b.date));
+  PREV_INDEX = buildPrevIndex(allReports);
   const brokerOrder = [];
   [...allReports].sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{ if(!brokerOrder.includes(r.broker)) brokerOrder.push(r.broker); });
   if(selectedBroker!=="all" && !brokerOrder.includes(selectedBroker)) selectedBroker = "all";
@@ -46467,7 +46495,7 @@ function render(code){
 
   // 主圖表
   html += `<div class="card">
-    <div class="section-title">各券商 ${mm.label} ${period==='annual'?'年度':'季度'}預估比較 <span class="hint">單位：${mm.unit}${selectedBroker==="all"?"｜圖表每家券商取最新一份":""}</span></div>
+    <div class="section-title">各券商 ${mm.label} ${period==='annual'?'年度':'季度'}預估比較 <span class="hint">單位：${mm.unit}${selectedBroker==="all"?"｜圖表每家券商取最新一份":""}${period==="annual"?"｜長條上方為與前次預估的變動":""}</span></div>
     <canvas id="epsChart"></canvas>
   </div>`;
 
@@ -46559,6 +46587,40 @@ function render(code){
   // ---------------- 畫圖 ----------------
   const palette = ["#4f8bff","#33c17a","#e5b95c","#f0556b","#a367e0","#39c0d8","#ff9f5a","#7bd389","#5ac8fa"];
 
+  // 在長條上方標示「與前次預估的變動幅度」。
+  // 前次值來自報告自身揭露的 epsPrev，因此目前只有 EPS 指標會出現標籤；
+  // 沒有前次資料的長條不畫任何東西（不畫 0，避免誤讀成大幅下修）。
+  const deltaLabelPlugin = {
+    id: "deltaLabel",
+    afterDatasetsDraw(chart){
+      if(period !== "annual") return;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.font = "600 10.5px 'Microsoft JhengHei', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      chart.data.datasets.forEach((ds, di)=>{
+        const meta = chart.getDatasetMeta(di);
+        if(meta.hidden) return;
+        const y = years[di];
+        meta.data.forEach((bar, bi)=>{
+          const rep = shownChart[bi];
+          if(!rep) return;
+          const cur  = annualVal(rep, y);
+          const prev = annualPrevVal(rep, y);
+          if(cur===undefined || prev===undefined || prev===null) return;
+          const p = pct(cur, prev);
+          if(p===null) return;
+          const flat = Math.abs(p) < 0.05;
+          ctx.fillStyle = flat ? "#93a0bd" : (p>0 ? "#33c17a" : "#f0556b");
+          const txt = flat ? "持平" : (p>0?"▲":"▼") + Math.abs(p).toFixed(1) + "%";
+          ctx.fillText(txt, bar.x, bar.y - 3);
+        });
+      });
+      ctx.restore();
+    }
+  };
+
   try{
     if(typeof Chart === "undefined") throw new Error("Chart.js 未載入");
     if(chart1) chart1.destroy();
@@ -46572,8 +46634,10 @@ function render(code){
       chart1 = new Chart(document.getElementById("epsChart"), {
         type:"bar",
         data:{ labels: shownChart.map(r=> shownChart.length>1 ? `${r.broker} (${r.date.slice(2)})` : r.broker), datasets },
+        plugins:[deltaLabelPlugin],
         options:{
           responsive:true,
+          layout:{ padding:{ top:16 } },
           plugins:{ legend:{labels:{color:"#e8ecf6"}}, tooltip:{mode:"index", intersect:false} },
           scales:{
             x:{ ticks:{color:"#93a0bd", maxRotation:35, minRotation:0}, grid:{color:"#2a3349"} },
