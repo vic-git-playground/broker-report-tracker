@@ -73,9 +73,12 @@
   .section-title{font-size:15px;font-weight:600;margin:0 0 12px;color:var(--text);display:flex;align-items:center;gap:8px;}
   .section-title .hint{font-size:12px;color:var(--sub);font-weight:400;}
   canvas{max-height:320px;}
-  .chart-legend-2row{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
-  .chart-legend-row{display:flex;flex-wrap:wrap;gap:16px;}
-  .chart-legend-row span.li-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);min-width:64px;}
+  .chart-legend-2row{display:grid;row-gap:6px;column-gap:10px;margin-bottom:10px;overflow-x:auto;}
+  .chart-legend-row{display:contents;}
+  .chart-legend-row span.li-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);white-space:nowrap;}
+  .chart-legend-row span.li-item.clickable{cursor:pointer;user-select:none;}
+  .chart-legend-row span.li-item.clickable:hover{color:var(--text);}
+  .chart-legend-row span.li-item.legend-off{opacity:.35;text-decoration:line-through;}
   .chart-legend-row .li-swatch{width:11px;height:11px;border-radius:2px;flex:none;}
   .chart-legend-row .li-line{width:16px;height:0;border-top:2px dashed;flex:none;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -181,7 +184,7 @@
     <div class="g-err" id="gErr"></div>
   </div>
 </div>
-<div id="buildStamp">資料更新：2026-08-17 11:25</div>
+<div id="buildStamp">資料更新：2026-08-17 12:45</div>
 <div id="logoutBar"><span id="whoami"></span><a onclick="signOut()">登出</a></div>
 <script>
 // ===AUTH_CONFIG_START===
@@ -110579,6 +110582,15 @@ const DATA = {
 // ---------------- 狀態 ----------------
 let chart1 = null, chart2 = null;
 let currentCode = "2330";
+
+// 自訂圖例點擊：切換對應資料集在 epsChart 上的顯示/隱藏（取代 Chart.js 內建圖例互動）
+function toggleLegendItem(el, datasetIndex){
+  if(!chart1) return;
+  const nowVisible = chart1.isDatasetVisible(datasetIndex);
+  chart1.setDatasetVisibility(datasetIndex, !nowVisible);
+  chart1.update();
+  el.classList.toggle("legend-off", nowVisible);
+}
 let period = "annual";   // 'annual' | 'quarterly'
 let metric = "eps";      // 'eps' | 'revenue' | 'gm'
 let selectedBroker = "all"; // 'all' 或特定券商名稱
@@ -111037,16 +111049,19 @@ function render(code){
         label: `${y}年 ${mm.short}`, data: barData[i],
         backgroundColor: palette[i % palette.length], order:2
       }));
-      const lineDatasets = years.map((y,i)=> medians[i]===null ? null : {
+      const lineDatasets = years.map((y,i)=> ({
         label: `${y}年中位數`, type:"line",
         data: shownChart.map(()=> medians[i]),
         borderColor: palette[i % palette.length], borderDash:[6,4], borderWidth:2,
-        pointRadius:0, fill:false, order:1
-      }).filter(Boolean);
+        pointRadius:0, fill:false, order:1, hidden: medians[i]===null
+      }));
 
-      if(legendEl) legendEl.innerHTML =
-        `<div class="chart-legend-row">${years.map((y,i)=>`<span class="li-item"><span class="li-swatch" style="background:${palette[i%palette.length]}"></span>${y}年</span>`).join("")}</div>
-         <div class="chart-legend-row">${years.map((y,i)=> medians[i]===null ? `<span class="li-item"></span>` : `<span class="li-item"><span class="li-line" style="border-color:${palette[i%palette.length]}"></span>中位數 ${fmt(medians[i])}${metric==="gm"?"%":""}</span>`).join("")}</div>`;
+      if(legendEl){
+        legendEl.style.gridTemplateColumns = `repeat(${years.length}, minmax(72px, 1fr))`;
+        legendEl.innerHTML =
+        `<div class="chart-legend-row">${years.map((y,i)=>`<span class="li-item clickable" onclick="toggleLegendItem(this,${i})"><span class="li-swatch" style="background:${palette[i%palette.length]}"></span>${y}年</span>`).join("")}</div>
+         <div class="chart-legend-row">${years.map((y,i)=> medians[i]===null ? `<span class="li-item"></span>` : `<span class="li-item clickable" onclick="toggleLegendItem(this,${years.length+i})"><span class="li-line" style="border-color:${palette[i%palette.length]}"></span>中位數 ${fmt(medians[i])}${metric==="gm"?"%":""}</span>`).join("")}</div>`;
+      }
 
       chart1 = new Chart(document.getElementById("epsChart"), {
         type:"bar",
@@ -111076,16 +111091,19 @@ function render(code){
         label: quarterLabel(q), data: barData[i],
         backgroundColor: palette[i % palette.length], order:2
       }));
-      const lineDatasets = qUnion.map((q,i)=> medians[i]===null ? null : {
+      const lineDatasets = qUnion.map((q,i)=> ({
         label: `${quarterLabel(q)}中位數`, type:"line",
         data: shownChart.map(()=> medians[i]),
         borderColor: palette[i % palette.length], borderDash:[6,4], borderWidth:2,
-        pointRadius:0, fill:false, order:1
-      }).filter(Boolean);
+        pointRadius:0, fill:false, order:1, hidden: medians[i]===null
+      }));
 
-      if(legendEl) legendEl.innerHTML =
-        `<div class="chart-legend-row">${qUnion.map((q,i)=>`<span class="li-item"><span class="li-swatch" style="background:${palette[i%palette.length]}"></span>${quarterLabel(q)}</span>`).join("")}</div>
-         <div class="chart-legend-row">${qUnion.map((q,i)=> medians[i]===null ? `<span class="li-item"></span>` : `<span class="li-item"><span class="li-line" style="border-color:${palette[i%palette.length]}"></span>中位數 ${fmt(medians[i])}${metric==="gm"?"%":""}</span>`).join("")}</div>`;
+      if(legendEl){
+        legendEl.style.gridTemplateColumns = `repeat(${qUnion.length}, minmax(72px, 1fr))`;
+        legendEl.innerHTML =
+        `<div class="chart-legend-row">${qUnion.map((q,i)=>`<span class="li-item clickable" onclick="toggleLegendItem(this,${i})"><span class="li-swatch" style="background:${palette[i%palette.length]}"></span>${quarterLabel(q)}</span>`).join("")}</div>
+         <div class="chart-legend-row">${qUnion.map((q,i)=> medians[i]===null ? `<span class="li-item"></span>` : `<span class="li-item clickable" onclick="toggleLegendItem(this,${qUnion.length+i})"><span class="li-line" style="border-color:${palette[i%palette.length]}"></span>中位數 ${fmt(medians[i])}${metric==="gm"?"%":""}</span>`).join("")}</div>`;
+      }
 
       chart1 = new Chart(document.getElementById("epsChart"), {
         type:"bar",
